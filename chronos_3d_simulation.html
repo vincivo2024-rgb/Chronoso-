@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chronos · 3D Civilization Sandbox</title>
+<style>
+:root{--bg:#07111b;--glass:#0b1b29eF;--line:#294354;--txt:#e8f3f7;--muted:#94aebd;--mint:#79e3b2;--gold:#f5ca78;--red:#ff7d7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px Inter,system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
+#scene{position:fixed;inset:0}canvas{display:block}
+.top{position:fixed;left:16px;right:16px;top:14px;display:flex;justify-content:space-between;gap:10px;pointer-events:none;align-items:flex-start}
+.brand,.topright,.panel,.bottom,.toast{background:var(--glass);border:1px solid #385265aa;backdrop-filter:blur(14px);box-shadow:0 10px 32px #0003;border-radius:15px}
+.brand{padding:12px 15px;pointer-events:auto}.brand h1{font-size:18px;margin:0}.brand small{color:var(--muted)}
+.topright{padding:10px 13px;display:flex;gap:12px;align-items:center;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+#year{font-size:19px;font-weight:800;color:var(--mint)}#mode{color:#b8cbd5;font-size:12px}
+button{border:1px solid #3a5a6c;background:#203a4b;color:var(--txt);padding:8px 10px;border-radius:9px;font:inherit;cursor:pointer;transition:.15s}
+button:hover{background:#2b5065;transform:translateY(-1px)}button.active{background:#1d785c;border-color:#58bb92}button.primary{background:#207a5c;border-color:#4bb88e;font-weight:750}button.red{border-color:#9c5152}
+.left{position:fixed;left:16px;top:95px;width:230px;display:flex;flex-direction:column;gap:10px}
+.panel{padding:12px}.panel h3{font-size:13px;margin:0 0 10px;letter-spacing:.3px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.metric{background:#122636;border:1px solid #263e4f;border-radius:10px;padding:8px}.metric span{display:block;color:var(--muted);font-size:10px}.metric b{font-size:17px}
+.resources{display:grid;grid-template-columns:1fr 1fr;gap:6px}.res{font-size:12px;background:#122636;border-radius:8px;padding:7px}
+#techlist{font-size:12px;line-height:1.5;color:#c9dbe5}
+.right{position:fixed;right:16px;top:95px;width:250px;max-height:calc(100vh - 190px);overflow:auto;display:flex;flex-direction:column;gap:10px}
+#events{max-height:240px;overflow:auto;display:flex;flex-direction:column-reverse;gap:6px;font-size:11px}
+.event{border-left:2px solid #54849a;padding:5px 7px;color:#c9dbe3;background:#102331;border-radius:0 7px 7px 0}.event.major{border-color:var(--gold);color:#f6e0ae}.event.war{border-color:var(--red);color:#ffc4c4}
+.bottom{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:9px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 30px)}
+.bottom .divider{width:1px;height:25px;background:var(--line);margin:0 3px}
+.bottom small{color:var(--muted);padding:0 5px}
+.toast{position:fixed;left:50%;top:80px;transform:translateX(-50%);padding:10px 15px;display:none;border-color:#5f927e;color:#d8ffed;max-width:85vw;text-align:center}
+.help{position:fixed;left:16px;bottom:90px;color:#c5d9e4;background:#0a1925b8;border-radius:9px;padding:8px 10px;font-size:11px}
+@media(max-width:850px){.left{width:180px;top:85px}.right{width:195px;top:85px}.brand small{display:none}.topright{gap:6px;padding:8px}button{padding:7px 8px}.bottom{bottom:8px}.help{display:none}}
+@media(max-width:620px){.left{left:8px;width:155px;top:80px}.right{right:8px;width:155px;top:80px}.panel{padding:9px}.metric b{font-size:14px}.top{left:8px;right:8px;top:8px}.brand{padding:9px}.brand h1{font-size:15px}.topright{max-width:55%}#year{font-size:15px}.bottom{gap:4px}.bottom button{font-size:11px;padding:6px}.resources{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div class="top">
+ <div class="brand"><h1>🌌 CHRONOS</h1><small>Evolution · Empires · Space</small></div>
+ <div class="topright"><div><div id="year">Jahr 0</div><div id="mode">Inselzeit</div></div><button id="play" class="primary">▶ Start</button></div>
+</div>
+<div class="left">
+ <div class="panel"><h3>🌍 Zivilisation</h3><div class="metrics" id="metrics"></div></div>
+ <div class="panel"><h3>📦 Ressourcen</h3><div class="resources" id="resources"></div></div>
+ <div class="panel"><h3>🧬 Technologie</h3><div id="techlist">Gründungswissen</div></div>
+</div>
+<div class="right">
+ <div class="panel"><h3>🗺️ Reiche</h3><div id="kingdoms" style="font-size:12px;line-height:1.55"></div></div>
+ <div class="panel"><h3>📜 Chronik</h3><div id="events"></div></div>
+</div>
+<div class="bottom">
+ <button id="one">+1 Jahr</button><button id="ten">+10</button><button id="century">+100</button><button id="millennium">+1.000</button>
+ <div class="divider"></div><small>Tempo</small><button data-speed="1" class="active">1×</button><button data-speed="10">10×</button><button data-speed="100">100×</button><button data-speed="1000">1k×</button>
+ <div class="divider"></div><button id="view">🪐 Sonnensystem</button><button id="reset" class="red">↺ Neustart</button>
+</div>
+<div class="help">🖱️ Ziehen = drehen · Mausrad = zoomen · Shift + Ziehen = verschieben · Planet anklicken</div>
+<div class="toast" id="toast"></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const sceneDiv=document.getElementById('scene');
+let renderer,scene,camera,clock,controls={drag:false,lastX:0,lastY:0,shift:false};
+let worldGroup,stars,people=[],trees=[],buildings=[],planets=[],sun,orbitLines=[],selectedPlanet=null;
+let mode='island',playing=false,speed=1,timer,toastTimer;
+let S;
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>Math.random()*(b-a)+a, rint=(a,b)=>Math.floor(rand(a,b+1)), choose=a=>a[Math.floor(Math.random()*a.length)];
+const techNames=['Überleben & Organisation','Landwirtschaft','Werkzeuge','Keramik & Textilien','Metallurgie','Mechanik','Medizin & Chemie','Schrift & Bildung','Elektrizität','Industrie','Funk & Kommunikation','Computer','Hightech-Werkstoffe','Luftfahrt','Raumfahrt','Marskolonie','Interplanetare Zivilisation'];
+const colors=[0x6abf7c,0xd7a96c,0x85b8ee,0xc28aef,0xef8585,0x80d6d1];
+function initState(){
+ S={year:0,pop:100,food:900,water:1300,wood:600,stone:400,ore:0,metal:0,energy:0,tech:0,research:0,knowledge:35,stability:75,settlements:1,kingdoms:[{name:'Auenbund',pop:100,color:colors[0],capital:'Grüne Bucht',territory:1,leader:'Mira I.'}],wars:0,colonies:0,launches:0,history:[],lastEvents:[],births:0,deaths:0,peopleData:[],nextNation:1,spaceWar:0};
+ for(let i=0;i<100;i++) S.peopleData.push({age:rint(15,45),health:rand(.65,1),skill:rand(.1,1),sex:i%2?'F':'M'});
+ S.history.push([0,100]);S.lastEvents=[{year:0,text:'Hundert Menschen gründen die Siedlung Grüne Bucht. Ihr Wissen ist modern, ihre Mittel begrenzt.',type:'major'}];
+}
+function toast(msg){let el=$('toast');el.textContent=msg;el.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.style.display='none',4000)}
+function event(text,type=''){S.lastEvents.unshift({year:S.year,text,type});if(S.lastEvents.length>45)S.lastEvents.pop();if(type==='major'||type==='war')toast(text)}
+function setupThree(){
+ renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;sceneDiv.appendChild(renderer.domElement);
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x061521);scene.fog=new THREE.Fog(0x061521,150,430);
+ camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1500);camera.position.set(0,115,160);
+ const hemi=new THREE.HemisphereLight(0xc6e7ff,0x283d26,2.0);scene.add(hemi);
+ const sunLight=new THREE.DirectionalLight(0xffefcf,3.2);sunLight.position.set(-90,150,100);sunLight.castShadow=true;sunLight.shadow.mapSize.set(2048,2048);scene.add(sunLight);
+ makeIsland();
+ setupPointer();
+ animate();
+}
+function terrainHeight(x,z){
+ let d=Math.sqrt(x*x+z*z), radius=88;
+ if(d>radius)return -9;
+ let edge=Math.max(0,1-d/radius);
+ let hills=Math.sin(x*.09)*Math.cos(z*.08)*5+Math.sin((x+z)*.04)*6;
+ let ridge=Math.max(0,1-Math.sqrt((x+12)**2+(z+7)**2)/40)*27;
+ let peak=Math.max(0,1-Math.sqrt((x-22)**2+(z-18)**2)/29)*18;
+ return 1+edge*4+hills*edge+ridge+peak;
+}
+function makeIsland(){
+ worldGroup=new THREE.Group();scene.add(worldGroup);
+ // surrounding ocean plane
+ let sea=new THREE.Mesh(new THREE.PlaneGeometry(600,600,1,1),new THREE.MeshStandardMaterial({color:0x0b4262,roughness:.32,metalness:.12}));sea.rotation.x=-Math.PI/2;sea.position.y=-3.5;sea.receiveShadow=true;worldGroup.add(sea);
+ // terrain triangulated grid with island height fade
+ const size=200,seg=150,positions=[],indices=[],colorsArr=[];
+ for(let iz=0;iz<=seg;iz++)for(let ix=0;ix<=seg;ix++){
+  let x=(ix/seg-.5)*size,z=(iz/seg-.5)*size,y=terrainHeight(x,z);
+  positions.push(x,y,z);
+  let col;
+  if(y<0)col=new THREE.Color(0x356e77);else if(y<4)col=new THREE.Color(0xcbbd88);else if(y<14)col=new THREE.Color(0x6a9b59);else if(y<25)col=new THREE.Color(0x527f4f);else col=new THREE.Color(0x7d8982);
+  col.multiplyScalar(rand(.95,1.05));colorsArr.push(col.r,col.g,col.b);
+ }
+ for(let z=0;z<seg;z++)for(let x=0;x<seg;x++){let a=z*(seg+1)+x,b=a+1,c=a+seg+1,d=c+1;indices.push(a,c,b,b,c,d);}
+ let geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(colorsArr,3));geo.setIndex(indices);geo.computeVertexNormals();
+ let land=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1}));land.receiveShadow=true;land.castShadow=true;worldGroup.add(land);
+ // beaches ring as tan low contour
+ // trees distributed
+ const treeMat=[0x2d754a,0x3c8955,0x205f3c,0x4c945c].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:1}));
+ for(let i=0;i<620;i++){let x=rand(-82,82),z=rand(-82,82),d=Math.hypot(x,z);if(d>80||terrainHeight(x,z)<5||Math.abs(x)<13&&Math.abs(z)<15)continue;
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.25,.4,2.3,5),new THREE.MeshStandardMaterial({color:0x60422d}));trunk.position.set(x,terrainHeight(x,z)+1.1,z);trunk.castShadow=true;
+  const crown=new THREE.Mesh(new THREE.ConeGeometry(rand(1.6,3),rand(4,7),6),choose(treeMat));crown.position.set(x,terrainHeight(x,z)+4,z);crown.castShadow=true;worldGroup.add(trunk,crown);trees.push(crown);
+ }
+ // winding river ribbon
+ const points=[];for(let i=0;i<70;i++){let t=i/69;points.push(new THREE.Vector3(-4+Math.sin(t*6)*17,terrainHeight(-4+Math.sin(t*6)*17,-75+t*150)+.1,-75+t*150));}
+ const river=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),100,1.15,8,false),new THREE.MeshStandardMaterial({color:0x49a9d4,roughness:.25,metalness:.1}));worldGroup.add(river);
+ // clear starting village and huts
+ makeSettlement(0,0,'Grüne Bucht');
+ spawnPeople(100);
+ camera.position.set(0,118,166);lookAtTarget.set(0,0,0);
+}
+const lookAtTarget=new THREE.Vector3(0,0,0);
+function makeHouse(x,z,scale=1,kind=0){
+ let y=terrainHeight(x,z);if(y<0)y=0;
+ const group=new THREE.Group();group.position.set(x,y,z);worldGroup.add(group);
+ const base=new THREE.Mesh(new THREE.BoxGeometry(3.6*scale,2.6*scale,3.4*scale),new THREE.MeshStandardMaterial({color:kind===1?0x9e9b89:0xd5b17a,roughness:.85}));base.position.y=1.3*scale;base.castShadow=true;base.receiveShadow=true;group.add(base);
+ const roof=new THREE.Mesh(new THREE.ConeGeometry(2.8*scale,2.1*scale,4),new THREE.MeshStandardMaterial({color:kind===1?0x5e6f78:0x8e493a,roughness:.8}));roof.rotation.y=Math.PI/4;roof.position.y=3.5*scale;roof.castShadow=true;group.add(roof);
+ buildings.push(group);return group;
+}
+function spawnPeople(n){
+ const matM=new THREE.MeshStandardMaterial({color:0x9bd7ff}),matF=new THREE.MeshStandardMaterial({color:0xffb6d0}),matChild=new THREE.MeshStandardMaterial({color:0xffd878});
+ for(let i=0;i<n;i++){let p=S.peopleData[i]||{age:rint(0,35),health:rand(.6,1),skill:rand(0,1),sex:Math.random()<.5?'F':'M'};
+  let mesh=new THREE.Group(),body=new THREE.Mesh(new THREE.CapsuleGeometry(.28,.75,3,5),p.age<15?matChild:p.sex==='F'?matF:matM);body.position.y=.65;mesh.add(body);
+  let head=new THREE.Mesh(new THREE.SphereGeometry(.23,7,6),new THREE.MeshStandardMaterial({color:0xd9b38c}));head.position.y=1.28;mesh.add(head);
+  let x=rand(-15,15),z=rand(-15,15);mesh.position.set(x,terrainHeight(x,z),z);mesh.userData={phase:rand(0,6),age:p.age,health:p.health,walking:Math.random()<.7,origin:new THREE.Vector3(x,0,z),target:new THREE.Vector3(rand(-22,22),0,rand(-22,22)),speed:rand(.4,1.2)};
+  worldGroup.add(mesh);people.push(mesh);
+ }
+}
+function clearGroup(g){while(g.children.length){let o=g.children[0];g.remove(o);if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose();}}}
+function rebuildPeople(){people.forEach(p=>worldGroup.remove(p));people=[];spawnPeople(Math.min(S.pop,250));}
+function addSettlementAt(x,z,name){
+ makeSettlement(x,z,name);S.settlements++;event('Eine neue Siedlung wird gegründet: '+name+'.','major');
+}
+function makeSettlement(x,z,name){for(let i=0;i<14;i++){let a=i*2.1,r=rand(5,15);makeHouse(x+Math.cos(a)*r,z+Math.sin(a)*r,rand(.7,1.15));}}
+function newKingdom(){
+ let names=['Nordmark','Sonnenreich','Freie Küstenstädte','Waldkönigreich','Eisenbund','Republik Aster','Westliche Allianz','Aurora','Morgenland','Königreich Lyr'];
+ let nm=choose(names);S.kingdoms.push({name:nm,pop:Math.floor(S.pop/S.kingdoms.length),color:colors[S.kingdoms.length%colors.length],capital:'Neustadt',territory:rint(1,4),leader:choose(['Königin','König','Präsident','Rat'])+' '+choose(['Ada','Leon','Sam','Iris','Noah','Mira'])});event(nm+' erklärt seine Unabhängigkeit und wird ein neues Reich.','major');
+}
+function simYear(){
+ S.year++;
+ // demographic dynamics approximate individual aging/mortality
+ let births=0,deaths=0;
+ S.peopleData.forEach(p=>{p.age++;let mortality=p.age>75?.055:p.age>60?.018:p.age<3?.03:.003;if(Math.random()<mortality){p.dead=true;deaths++;}});
+ S.peopleData=S.peopleData.filter(p=>!p.dead);
+ let fertile=Math.max(0,S.peopleData.filter(p=>p.sex==='F'&&p.age>=18&&p.age<=42).length);
+ births=Math.floor(fertile*(S.food>80?rand(.045,.095):rand(.01,.04))*Math.max(0,1-S.pop/3500));
+ for(let i=0;i<births;i++)S.peopleData.push({age:0,health:rand(.7,1),skill:rand(0,.25),sex:Math.random()<.5?'F':'M'});
+ S.pop=S.peopleData.length;S.births+=births;S.deaths+=deaths;
+ // food water gathering, consumption, production
+ let workforce=S.pop*.55, techBoost=1+S.tech*.12;
+ S.food+=workforce*(.6+S.tech*.12)*techBoost-S.pop*.85;
+ S.water+=S.pop*1.3-S.pop*.95;
+ S.wood+=workforce*.22-S.pop*.1;
+ S.stone+=workforce*.04;
+ if(S.tech>=4){S.ore+=workforce*.04;let prod=Math.min(S.ore,workforce*.025);S.ore-=prod;S.metal+=prod;}
+ if(S.tech>=8)S.energy+=workforce*.07;
+ for(let k of ['food','water','wood','stone','ore','metal','energy'])S[k]=Math.max(0,S[k]);
+ let hunger=S.food<S.pop*2,thirst=S.water<S.pop*1.2;
+ if(hunger||thirst){S.stability-=3;if(Math.random()<.12){let lost=Math.ceil(S.pop*rand(.01,.05));S.peopleData.splice(0,Math.min(lost,S.peopleData.length));S.pop=S.peopleData.length;event('Knappheit fordert Opfer.','war');}}
+ else S.stability=Math.min(100,S.stability+.15);
+ // technology advancement: knowledge of modern theory + incremental implementation
+ let points=S.pop*.008+S.knowledge*.06+(S.tech>=7?2:0);
+ S.research+=points;
+ const thresholds=[0,35,100,220,420,700,1050,1500,2100,2800,3600,4600,5900,7300,9000,11500,14500];
+ if(S.tech<techNames.length-1 && S.research>=thresholds[S.tech+1]){
+  let requirementOK=S.tech<3||S.wood>20;
+  if(S.tech>=4)requirementOK=S.metal>2;
+  if(S.tech>=8)requirementOK=S.energy>10;
+  if(S.tech>=14)requirementOK=S.metal>100&&S.energy>200&&S.pop>300;
+  if(requirementOK){S.research-=thresholds[S.tech+1];S.tech++;event('Technologie erreicht: '+techNames[S.tech]+'.','major');}
+ }
+ S.knowledge=Math.min(100,S.knowledge+S.pop*.001+S.tech*.03);
+ // autonomous civilization milestones
+ if(S.pop>160&&S.settlements===1&&Math.random()<.02)addSettlementAt(36,-25,'Flussdorf');
+ if(S.pop>400&&S.settlements<3&&Math.random()<.012)addSettlementAt(-42,20,'Hafenstadt');
+ if(S.pop>700&&S.kingdoms.length===1&&Math.random()<.015)newKingdom();
+ if(S.pop>1200&&S.kingdoms.length<4&&Math.random()<.008)newKingdom();
+ // Kingdom population distribution, diplomacy, wars
+ S.kingdoms.forEach(k=>k.pop=Math.floor(S.pop/S.kingdoms.length*(rand(.75,1.25))));
+ if(S.kingdoms.length>=2&&Math.random()<.018){S.wars++;event(choose(S.kingdoms).name+' und '+choose(S.kingdoms).name+' geraten in einen Krieg.','war');if(Math.random()<.55){let loser=choose(S.kingdoms);loser.territory=Math.max(1,loser.territory-1);S.stability-=rand(2,8);}}
+ if(S.kingdoms.length>=2&&Math.random()<.012)event('Ein Friedensvertrag beendet einen Konflikt.','major');
+ // space-age progression & colony
+ if(S.tech>=14&&S.year>250&&S.launches===0&&Math.random()<.08){S.launches++;event('Der erste Satellit erreicht den Orbit.','major');}
+ if(S.tech>=15&&S.launches>0&&S.year>450&&S.colonies===0&&Math.random()<.04){S.colonies=1;event('Eine dauerhafte Marskolonie wird gegründet! Die Menschheit verlässt ihre Heimatwelt.','major');switchToSolar(true);}
+ if(S.tech>=16&&S.colonies>0&&S.year>650&&Math.random()<.01){S.spaceWar++;event('Ein Konflikt zwischen irdischen und marsianischen Interessen beginnt.','war');}
+ if(S.colonies>0&&S.year>700&&S.kingdoms.length<5&&Math.random()<.02){S.kingdoms.push({name:'Mars-Kolonie',pop:Math.floor(S.pop*.04),color:0xef8d61,territory:1,leader:'Kolonialrat'});event('Mars erklärt Autonomie. Ein neues planetarisches Staatswesen entsteht.','major');}
+ if(Math.random()<.014){let e=choose(['Eine außergewöhnliche Ernte verbessert die Vorräte.','Ein Erdbeben beschädigt einige Gebäude.','Eine medizinische Entdeckung rettet Leben.','Eine politische Reform stärkt die Stabilität.','Eine technische Idee beschleunigt die Forschung.','Ein Sturm trifft die Küste.']);if(e.includes('Ernte'))S.food*=1.2;if(e.includes('Erdbeben'))S.stability-=6;if(e.includes('medizin'))S.stability+=4;if(e.includes('Idee'))S.research+=rint(20,100);if(e.includes('Sturm'))S.wood*=.9;event(e);}
+ if(S.year%10===0)S.history.push([S.year,S.pop]);
+}
+function jumpYears(n){if(!S)return;for(let i=0;i<n;i++)simYear();rebuildPeople();updateUI();if(S.colonies>0)switchToSolar(true);else if(mode==='solar')switchToIsland();}
+function updateUI(){
+ $('year').textContent='Jahr '+S.year.toLocaleString('de-DE');$('mode').textContent=mode==='island'?'Inselansicht · 3D':mode==='solar'?'Sonnensystem · 3D':'Planet · 3D';
+ let avgAge=S.peopleData.length?S.peopleData.reduce((a,p)=>a+p.age,0)/S.peopleData.length:0;
+ $('metrics').innerHTML=[['Einwohner',S.pop.toLocaleString('de-DE')],['Ø Alter',avgAge.toFixed(1)],['Siedlungen',S.settlements],['Reiche',S.kingdoms.length],['Technologie',S.tech+'/'+(techNames.length-1)],['Stabilität',Math.round(S.stability)+'%']].map(x=>`<div class="metric"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+ $('resources').innerHTML=[['🍎',S.food],['💧',S.water],['🪵',S.wood],['🪨',S.stone],['⛏️',S.ore],['🔩',S.metal],['⚡',S.energy]].map(x=>`<div class="res">${x[0]} ${Math.floor(x[1]).toLocaleString('de-DE')}</div>`).join('');
+ $('techlist').innerHTML=`<b>${techNames[S.tech]}</b><br><span style="color:var(--muted)">Forschung ${Math.floor(S.research)} RP</span><br>${S.tech>=14?'🛰️ Raumfahrt aktiv':S.tech>=8?'⚡ Industrielle Revolution':'📚 Modernes Wissen, begrenzte Mittel'}`;
+ $('kingdoms').innerHTML=S.kingdoms.map(k=>`<div style="margin-bottom:6px"><span style="color:#${k.color.toString(16).padStart(6,'0')}">●</span> <b>${k.name}</b><br><span style="color:#91aab9">${k.pop.toLocaleString('de-DE')} Einwohner · ${k.territory} Gebiet(e)</span></div>`).join('')+`<div style="color:#91aab9;margin-top:7px">⚔️ Konflikte: ${S.wars}</div>`;
+ $('events').innerHTML=S.lastEvents.map(e=>`<div class="event ${e.type}"><b>Jahr ${e.year}</b> · ${e.text}</div>`).join('');
+}
+function clearSceneExceptLights(){scene.remove(worldGroup);worldGroup=null;people=[];buildings=[];trees=[];}
+function switchToSolar(force=false){
+ if(mode==='solar'&&!force)return;mode='solar';clearSceneExceptLights();
+ scene.fog=new THREE.Fog(0x02030a,300,1100);scene.background=new THREE.Color(0x03040b);
+ // star field
+ const starGeo=new THREE.BufferGeometry(),starPos=[];for(let i=0;i<2600;i++){starPos.push(rand(-900,900),rand(-900,900),rand(-900,900));}starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:1.5}));scene.add(stars);
+ worldGroup=new THREE.Group();scene.add(worldGroup);
+ sun=new THREE.Mesh(new THREE.SphereGeometry(12,32,24),new THREE.MeshBasicMaterial({color:0xffcc55}));worldGroup.add(sun);
+ const specs=[['Merkur',18,0.9,0x9a9389],['Venus',29,2.1,0xe4b979],['Erde',42,2.3,0x3487e6],['Mars',58,1.5,0xd66e4a],['Jupiter',95,7,0xcaa47b],['Saturn',135,5.8,0xd6c28e],['Uranus',175,3.7,0x8ad4d9],['Neptun',215,3.5,0x416de0]];
+ specs.forEach((p,i)=>{let grp=new THREE.Group();grp.position.set(p[1],0,0);worldGroup.add(grp);let m=new THREE.Mesh(new THREE.SphereGeometry(p[2],32,24),new THREE.MeshStandardMaterial({color:p[3],roughness:.8}));grp.add(m);if(p[0]==='Saturn'){let ring=new THREE.Mesh(new THREE.RingGeometry(7,10,64),new THREE.MeshBasicMaterial({color:0xb8a77d,side:THREE.DoubleSide,transparent:true,opacity:.7}));ring.rotation.x=Math.PI/2.3;grp.add(ring);}
+ let orb=new THREE.Mesh(new THREE.SphereGeometry(.3,8,8),new THREE.MeshBasicMaterial({color:0xffffff}));orb.position.set(p[1],0,0);worldGroup.add(orb);
+ let line=new THREE.Mesh(new THREE.TorusGeometry(p[1],.08,4,100),new THREE.MeshBasicMaterial({color:0x44516c,transparent:true,opacity:.35}));line.rotation.x=Math.PI/2;worldGroup.add(line);
+ planets.push({name:p[0],obj:grp,radius:p[1],size:p[2],color:p[3],angle:rand(0,6.28),speed:.001/(i+1),home:i===2,colonized:i===3&&S.colonies>0});});
+ if(S.colonies>0){let mars=planets.find(p=>p.name==='Mars');mars.obj.add(makeColonyMarker());}
+ camera.position.set(0,155,300);lookAtTarget.set(0,0,0);toast('Sonnensystem-Ansicht: Du kannst Planeten anklicken und heranzoomen.');
+}
+function makeColonyMarker(){let g=new THREE.Group();for(let i=0;i<7;i++){let h=new THREE.Mesh(new THREE.CylinderGeometry(.3,.45,1.2,6),new THREE.MeshStandardMaterial({color:0x9fc4d0,metalness:.4}));h.position.set(rand(-2,2),rand(0,1),rand(-2,2));g.add(h);}return g;}
+function switchToIsland(){mode='island';if(stars)scene.remove(stars);planets=[];scene.fog=new THREE.Fog(0x061521,150,430);scene.background=new THREE.Color(0x061521);clearSceneExceptLights();makeIsland();updateUI();}
+function focusPlanet(p){selectedPlanet=p;lookAtTarget.copy(p.obj.position);camera.position.copy(p.obj.position).add(new THREE.Vector3(0,p.size*4,p.size*7));toast(p.name+' ausgewählt · Kamera folgt dem Ziel');}
+function setupPointer(){
+ renderer.domElement.addEventListener('pointerdown',e=>{controls.drag=true;controls.lastX=e.clientX;controls.lastY=e.clientY;controls.shift=e.shiftKey;renderer.domElement.setPointerCapture(e.pointerId);});
+ renderer.domElement.addEventListener('pointerup',e=>{controls.drag=false;if(mode==='solar'){let rect=renderer.domElement.getBoundingClientRect(),mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),ray=new THREE.Raycaster();ray.setFromCamera(mouse,camera);let hits=ray.intersectObjects(planets.map(p=>p.obj),true);if(hits.length){let p=planets.find(p=>p.obj===hits[0].object||p.obj.children.includes(hits[0].object));if(p)focusPlanet(p);}}});
+ renderer.domElement.addEventListener('pointermove',e=>{if(!controls.drag)return;let dx=e.clientX-controls.lastX,dy=e.clientY-controls.lastY;controls.lastX=e.clientX;controls.lastY=e.clientY;
+  if(controls.shift){let right=new THREE.Vector3().setFromMatrixColumn(camera.matrix,0);let up=new THREE.Vector3().setFromMatrixColumn(camera.matrix,1);lookAtTarget.addScaledVector(right,-dx*.15).addScaledVector(up,dy*.15);camera.position.addScaledVector(right,-dx*.15).addScaledVector(up,dy*.15);}
+  else{let offset=camera.position.clone().sub(lookAtTarget),sph=new THREE.Spherical().setFromVector3(offset);sph.theta-=dx*.005;sph.phi=Math.max(.08,Math.min(Math.PI-.08,sph.phi+dy*.005));camera.position.copy(lookAtTarget).add(new THREE.Vector3().setFromSpherical(sph));}
+ });
+ renderer.domElement.addEventListener('wheel',e=>{let dir=e.deltaY>0?1:-1,offset=camera.position.clone().sub(lookAtTarget);offset.multiplyScalar(dir>0?1.09:.91);let len=offset.length();if(mode==='island')len=Math.max(16,Math.min(360,len));else len=Math.max(12,Math.min(650,len));offset.setLength(len);camera.position.copy(lookAtTarget).add(offset);},{passive:true});
+}
+function animate(){requestAnimationFrame(animate);let dt=clock?clock.getDelta():0;if(mode==='island'){people.forEach(p=>{let u=p.userData;if(u.walking){u.phase+=dt*4*u.speed;let dx=u.target.x-p.position.x,dz=u.target.z-p.position.z;if(Math.hypot(dx,dz)<1.4){u.target.set(rand(-30,30),0,rand(-30,30));}else{p.position.x+=dx*.004;p.position.z+=dz*.004;p.position.y=terrainHeight(p.position.x,p.position.z);p.rotation.y=Math.atan2(dx,dz);}}p.children[0].rotation.x=Math.sin(u.phase)*.12;});}
+ if(mode==='solar'){planets.forEach(p=>{p.angle+=p.speed*60*dt;p.obj.position.set(Math.cos(p.angle)*p.radius,0,Math.sin(p.angle)*p.radius);});if(selectedPlanet){let pos=selectedPlanet.obj.position;lookAtTarget.lerp(pos,.025);}}
+ camera.position.add(lookAtTarget.clone().sub(camera.position).multiplyScalar(0));camera.lookAt(lookAtTarget);renderer.render(scene,camera);}
+function startStop(){playing=!playing;$('play').textContent=playing?'⏸ Pause':'▶ Start';if(playing)loop();else clearTimeout(timer);}
+function loop(){if(!playing)return;let batch=speed;for(let i=0;i<batch;i++)simYear();if(S.colonies>0&&mode!=='solar')switchToSolar(true);if(S.year%10===0||speed>1){updateUI();if(mode==='island'&&S.year%40===0)rebuildPeople();}timer=setTimeout(loop,speed>=1000?50:speed>=100?100:450);}
+$('play').onclick=startStop;$('one').onclick=()=>jumpYears(1);$('ten').onclick=()=>jumpYears(10);$('century').onclick=()=>jumpYears(100);$('millennium').onclick=()=>jumpYears(1000);
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>x.classList.toggle('active',x===b));});
+$('view').onclick=()=>mode==='island'?switchToSolar():switchToIsland();
+$('reset').onclick=()=>{playing=false;clearTimeout(timer);$('play').textContent='▶ Start';initState();switchToIsland();updateUI();toast('Neue Simulation gestartet.');};
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+initState();setupThree();updateUI();clock=new THREE.Clock();
+</script>
+</body>
+</html>
